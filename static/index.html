@@ -2,11 +2,12 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Let's Draw Together</title>
+    <title>Screen Mirroring</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css">
     <link rel="stylesheet" href="/static/index.css">
-    <link rel="alternate icon" type="image/png" href="/static/logo.png">
-    <link rel="icon" type="image/svg+xml" href="/static/logo.png">
+    <link rel="stylesheet" href="/static/style1.css">
+    <link rel="alternate icon" type="image/png" href="/static/logo.jpg">
+    <link rel="icon" type="image/svg+xml" href="/static/logo.jpg">
 </head>
 <body>
     <div class="flush vstack">
@@ -40,10 +41,21 @@
         </div>
         <div class="spacer app">
             <canvas></canvas>
-            <canvas class="active"></canvas>
+            <canvas id="canvas" class="active"></canvas>
         </div>
-    </div>
 
+        <br />
+        Log:
+        <pre id="log" style="border: 1px solid #ccc;"></pre>
+
+        <!-- <canvas id="canvas" width="600" height="600" style="border:solid black 1px;">
+            Your browser does not support canvas element.
+          </canvas>
+           <canvas class="active"></canvas>
+          <br />
+          Log:
+          <pre id="log" style="border: 1px solid #ccc;"></pre> -->
+    </div>
     <script type="text/javascript" src="/static/load.js"></script>
     <script type="text/javascript" src="/static/draw.js"></script>
 </body>

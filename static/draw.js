@@ -3,6 +3,14 @@ const activeCanvas = document.querySelector('.app canvas.active');
 const ctx = canvas.getContext('2d');
 const activeCtx = activeCanvas.getContext('2d');
 
+// var canvasRef = document.getElementById('myCanvas');
+// var ctx = canvasRef.getContext("2d");
+
+var inMemCanvas = document.createElement('canvas');
+var inMemCtx = inMemCanvas.getContext('2d');
+
+// const ongoingTouches = [];
+
 var lastPoint;
 var force = 1;
 var mouseDown = false;
@@ -72,6 +80,7 @@ colorPicker.style.color = color;
 colorElements[color].classList.add('active');
 
 function resize() {
+    console.log("came in resize")
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     activeCanvas.width = window.innerWidth;
@@ -85,8 +94,49 @@ function onPeerData(id, data) {
     } else if (msg.event === 'drawRect') {
         drawRect(msg);
     } else if (msg.event === 'clear') {
+        console.log("came in clear dat")
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
+}
+
+
+// drawCircle({
+//     origin: origin,
+//     color: color,
+//     radius: Math.abs(originPoint.x - e.offsetX)/2,
+//     start:Math.abs(originPoint.x - e.offsetX),
+//     end: Math.abs(originPoint.y - e.offsetY)
+// });
+
+
+function drawText(data, commit) {
+    // activeCtx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
+    if (data.commit || commit) {
+        ctx.strokeStyle = data.color;
+        // ctx.strokeText("Drawing Text 1",data.origin.x, data.origin.y);
+        ctx.font = "30px Arial";
+        ctx.fillText("Hello World",data.origin.x, data.origin.y);
+    } else {
+        activeCtx.strokeStyle = data.color;
+        activeCtx.strokeText("Drawing Text 2",data.origin.x, data.origin.y);
+    }
+     activeShape = data;
+}
+
+function drawCircle(data, commit) {
+    // activeCtx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
+    // console.log("Came here in drawCircle", data)
+    if (data.commit || commit) {
+      
+        ctx.strokeStyle = data.color;
+        ctx.arc(data.origin.x, data.origin.y, 40, 0, 2 * Math.PI);
+        ctx.stroke();
+    } else {
+        activeCtx.strokeStyle = data.color;
+        ctx.arc(data.origin.x, data.origin.y, 40, 0, 2 * Math.PI);
+        activeCtx.stroke();
+    }
+    activeShape = data;
 }
 
 function draw(data) {
@@ -112,6 +162,9 @@ function drawRect(data, commit) {
     activeShape = data;
 }
 
+
+
+
 function move(e) {
     mouseDown = e.buttons;
     if (e.buttons) {
@@ -120,7 +173,7 @@ function move(e) {
             originPoint = { x: e.offsetX, y: e.offsetY };
             return;
         }
-
+    console.log("activeTool is ---",activeTool)
         if (activeTool === 'pencil') {
             draw({
                 lastPoint,
@@ -136,7 +189,8 @@ function move(e) {
                 x: e.offsetX,
                 y: e.offsetY,
                 force: force,
-                color: color
+                color: color,
+                shape: 'line'
             }));
         } else if (activeTool === 'rect') {
             let origin = {
@@ -147,14 +201,60 @@ function move(e) {
                 origin: origin,
                 color: color,
                 width: Math.abs(originPoint.x - e.offsetX),
-                height: Math.abs(originPoint.y - e.offsetY)
+                height: Math.abs(originPoint.y - e.offsetY),
+                shape: 'rect'
             });
             broadcast(JSON.stringify({
                 event: 'drawRect',
                 origin: origin,
                 color: color,
                 width: Math.abs(originPoint.x - e.offsetX),
-                height: Math.abs(originPoint.y - e.offsetY)
+                height: Math.abs(originPoint.y - e.offsetY),
+                shape: 'rect'
+            }));
+        }else if (activeTool === 'circle') {
+            console.log("Circle is being tried now")
+            let origin = {
+                x: Math.min(originPoint.x, e.offsetX),
+                y: Math.min(originPoint.y, e.offsetY)
+            };
+            drawCircle({
+                origin: origin,
+                color: color,
+                radius: Math.abs(originPoint.x - e.offsetX)/2,
+                start:Math.abs(originPoint.x - e.offsetX),
+                end: Math.abs(originPoint.y - e.offsetY),
+                shape: 'circle'
+            });
+            broadcast(JSON.stringify({
+                event: 'drawCircle',
+                origin: origin,
+                color: color,
+                radius: Math.abs(originPoint.x - e.offsetX)/2,
+                start:Math.abs(originPoint.x - e.offsetX),
+                end: Math.abs(originPoint.y - e.offsetY),
+                shape: 'circle'
+            }));
+        }else if (activeTool === 'text') {
+            console.log("Text is being tried now")
+            let origin = {
+                x: Math.min(originPoint.x, e.offsetX),
+                y: Math.min(originPoint.y, e.offsetY)
+            };
+            drawText({
+                origin: origin,
+                color: color,
+                start:Math.abs(originPoint.x - e.offsetX),
+                end: Math.abs(originPoint.y - e.offsetY),
+                shape: 'text'
+            });
+            broadcast(JSON.stringify({
+                event: 'drawText',
+                origin: origin,
+                color: color,
+                start:Math.abs(originPoint.x - e.offsetX),
+                end: Math.abs(originPoint.y - e.offsetY),
+                shape: 'text'
             }));
         }
 
@@ -169,10 +269,26 @@ function down(e) {
 }
 
 function up() {
-    if (activeShape) {
+    if (activeShape.shape == 'rect') {
         drawRect(activeShape, true);
         broadcast(JSON.stringify(Object.assign({
             event: 'drawRect',
+            commit: true,
+        }, activeShape)));
+        activeShape = undefined;
+    }else  if (activeShape.shape == 'circle') {
+        console.log("activeShape.shape == 'circle'")
+        drawCircle(activeShape, true);
+        broadcast(JSON.stringify(Object.assign({
+            event: 'drawCircle',
+            commit: true,
+        }, activeShape)));
+        activeShape = undefined;
+    }else  if (activeShape.shape == 'text') {
+        console.log("activeShape.shape == 'text'")
+        drawText(activeShape, true);
+        broadcast(JSON.stringify(Object.assign({
+            event: 'drawText',
             commit: true,
         }, activeShape)));
         activeShape = undefined;
@@ -183,6 +299,7 @@ function up() {
 
 function key(e) {
     if (e.key === 'Backspace') {
+        console.log("backspace based clear data")
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         broadcast(JSON.stringify({
             event: 'clear'
@@ -221,12 +338,342 @@ function forceChanged(e) {
     force = e.webkitForce || 1;
 }
 
+function touchstart(e) {
+    e.preventDefault();
+    originPoint = { x: e.offsetX, y: e.offsetY };
+}
+
+function touchmove(e) {
+    e.preventDefault();
+    mouseDown = e.buttons;
+
+    if (e.buttons) {
+        if (!lastPoint) {
+            lastPoint = { x: e.offsetX, y: e.offsetY };
+            originPoint = { x: e.offsetX, y: e.offsetY };
+            return;
+        }
+    console.log("activeTool is ---",activeTool)
+        if (activeTool === 'pencil') {
+            draw({
+                lastPoint,
+                x: e.offsetX,
+                y: e.offsetY,
+                force: force,
+                color: color
+            });
+
+            broadcast(JSON.stringify({
+                event: 'draw',
+                lastPoint,
+                x: e.offsetX,
+                y: e.offsetY,
+                force: force,
+                color: color,
+                shape: 'line'
+            }));
+        } else if (activeTool === 'rect') {
+            let origin = {
+                x: Math.min(originPoint.x, e.offsetX),
+                y: Math.min(originPoint.y, e.offsetY)
+            };
+            drawRect({
+                origin: origin,
+                color: color,
+                width: Math.abs(originPoint.x - e.offsetX),
+                height: Math.abs(originPoint.y - e.offsetY),
+                shape: 'rect'
+            });
+            broadcast(JSON.stringify({
+                event: 'drawRect',
+                origin: origin,
+                color: color,
+                width: Math.abs(originPoint.x - e.offsetX),
+                height: Math.abs(originPoint.y - e.offsetY),
+                shape: 'rect'
+            }));
+        }else if (activeTool === 'circle') {
+            console.log("Circle is being tried now")
+            let origin = {
+                x: Math.min(originPoint.x, e.offsetX),
+                y: Math.min(originPoint.y, e.offsetY)
+            };
+            drawCircle({
+                origin: origin,
+                color: color,
+                radius: Math.abs(originPoint.x - e.offsetX)/2,
+                start:Math.abs(originPoint.x - e.offsetX),
+                end: Math.abs(originPoint.y - e.offsetY),
+                shape: 'circle'
+            });
+            broadcast(JSON.stringify({
+                event: 'drawCircle',
+                origin: origin,
+                color: color,
+                radius: Math.abs(originPoint.x - e.offsetX)/2,
+                start:Math.abs(originPoint.x - e.offsetX),
+                end: Math.abs(originPoint.y - e.offsetY),
+                shape: 'circle'
+            }));
+        }else if (activeTool === 'text') {
+            console.log("Text is being tried now")
+            let origin = {
+                x: Math.min(originPoint.x, e.offsetX),
+                y: Math.min(originPoint.y, e.offsetY)
+            };
+            drawText({
+                origin: origin,
+                color: color,
+                start:Math.abs(originPoint.x - e.offsetX),
+                end: Math.abs(originPoint.y - e.offsetY),
+                shape: 'text'
+            });
+            broadcast(JSON.stringify({
+                event: 'drawText',
+                origin: origin,
+                color: color,
+                start:Math.abs(originPoint.x - e.offsetX),
+                end: Math.abs(originPoint.y - e.offsetY),
+                shape: 'text'
+            }));
+        }
+
+        lastPoint = { x: e.offsetX, y: e.offsetY };
+    } else {
+        lastPoint = undefined;
+    }
+}
+function touchend() {
+    if (activeShape.shape == 'rect') {
+        drawRect(activeShape, true);
+        broadcast(JSON.stringify(Object.assign({
+            event: 'drawRect',
+            commit: true,
+        }, activeShape)));
+        activeShape = undefined;
+    }else  if (activeShape.shape == 'circle') {
+        console.log("activeShape.shape == 'circle'")
+        drawCircle(activeShape, true);
+        broadcast(JSON.stringify(Object.assign({
+            event: 'drawCircle',
+            commit: true,
+        }, activeShape)));
+        activeShape = undefined;
+    }else  if (activeShape.shape == 'text') {
+        console.log("activeShape.shape == 'text'")
+        drawText(activeShape, true);
+        broadcast(JSON.stringify(Object.assign({
+            event: 'drawText',
+            commit: true,
+        }, activeShape)));
+        activeShape = undefined;
+    }
+    lastPoint = undefined;
+    originPoint = undefined;
+}
+// function touchToMouseHandler(event) {
+//     var touch = event.changedTouches[0];
+ 
+//     // var simulatedEvent = document.createEvent('MouseEvent');
+//     var simulatedEvent = new MouseEvent();
+//      simulatedEvent.initMouseEvent({
+//      touchstart: “mousedown”,
+//      touchmove: “mousemove”,
+//      touchend: “mouseup”
+//     }[event.type], true, true, window, 1,
+//      touch.screenX, touch.screenY,
+//      touch.clientX, touch.clientY, false,
+//      false, false, false, 0, null);
+ 
+ 
+//     touch.target.dispatchEvent(simulatedEvent);
+//     event.preventDefault();
+//    }
+ 
+//  function initHandlers() {
+//     document.addEventListener(“touchstart”, touchToMouseHandler, true);
+//     document.addEventListener(“touchmove”, touchToMouseHandler, true);
+//     document.addEventListener(“touchend”, touchToMouseHandler, true);
+//     document.addEventListener(“touchcancel”, touchToMouseHandler, true);
+//    }
+
+
 window.onresize = resize;
 window.onmousedown = down;
 window.onmousemove = move;
 window.onmouseup = up;
 window.onkeydown = key;
-
+window.ontouchstart = handleStart;
+window.ontouchmove= handleMove;
+window.ontouchend = handleEnd;
+window.ontouchcancel = handleCancel;
+// window.ontouchmove= move;
+// window.ontouchend = up;
 window.onwebkitmouseforcechanged = forceChanged;
 
 resize();
+
+
+function startup() {
+    const el = document.getElementById("canvas");
+    el.addEventListener("touchstart", handleStart);
+    el.addEventListener("touchend", handleEnd);
+    el.addEventListener("touchcancel", handleCancel);
+    el.addEventListener("touchmove", handleMove);
+    log("Initialized.");
+  }
+  
+  document.addEventListener("DOMContentLoaded", startup);
+  
+  const ongoingTouches = [];
+  
+  function handleStart(evt) {
+    evt.preventDefault();
+    log("touchstart.");
+    const el = document.getElementById("canvas");
+    const ctx = el.getContext("2d");
+    const touches = evt.changedTouches;
+  
+    for (let i = 0; i < touches.length; i++) {
+      log(`touchstart: ${i}.`);
+      ongoingTouches.push(copyTouch(touches[i]));
+      const color = colorForTouch(touches[i]);
+      log(`color of touch with id ${touches[i].identifier} = ${color}`);
+      ctx.beginPath();
+      ctx.arc(touches[i].pageX, touches[i].pageY, 4, 0, 2 * Math.PI, false); // a circle at the start
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+  }
+  
+  function handleMove(evt) {
+    evt.preventDefault();
+    const el = document.getElementById("canvas");
+    const ctx = el.getContext("2d");
+    const touches = evt.changedTouches;
+      
+    // if (!lastPoint) {
+    //     lastPoint = { x: evt.offsetX, y: evt.offsetY };
+    //     originPoint = { x: evt.offsetX, y: evt.offsetY };
+    //     return;
+    // }
+
+    for (let i = 0; i < touches.length; i++) {
+        // const color = colorForTouch(touches[i]);
+      const idx = ongoingTouchIndexById(touches[i].identifier);
+  
+
+      if (idx >= 0) {
+        if (!lastPoint) {
+            lastPoint = { x: ongoingTouches[idx].pageX, y: ongoingTouches[idx].pageY };
+            originPoint = { x: evt.offsetX, y: evt.offsetY };
+            return;
+        }
+        
+        // log(`continuing touch ${idx}`);
+        // ctx.beginPath();
+        // log(
+        //   `ctx.moveTo( ${ongoingTouches[idx].pageX}, ${ongoingTouches[idx].pageY} );`,
+        // );
+        // ctx.moveTo(ongoingTouches[idx].pageX, ongoingTouches[idx].pageY);
+        // log(`ctx.lineTo( ${touches[i].pageX}, ${touches[i].pageY} );`);
+        // ctx.lineTo(touches[i].pageX, touches[i].pageY);
+        // ctx.lineWidth = 4;
+        // ctx.strokeStyle = color;
+        // ctx.stroke();
+
+        lastPoint = { x: ongoingTouches[idx].pageX, y: ongoingTouches[idx].pageY };
+        draw({
+            lastPoint,
+            x: touches[i].pageX,
+            y: touches[i].pageY,
+            force: force,
+            color: color
+        });
+
+            
+        broadcast(JSON.stringify({
+            event: 'draw',
+            lastPoint,
+            x: touches[i].pageX,
+            y: touches[i].pageY,
+            force: force,
+            color: color,
+            shape: 'line'
+        }));
+  
+        ongoingTouches.splice(idx, 1, copyTouch(touches[i])); // swap in the new touch record
+      } else {
+        log("can't figure out which touch to continue");
+      }
+    }
+  }
+  
+  function handleEnd(evt) {
+    evt.preventDefault();
+    log("touchend");
+    const el = document.getElementById("canvas");
+    const ctx = el.getContext("2d");
+    const touches = evt.changedTouches;
+  
+    for (let i = 0; i < touches.length; i++) {
+      const color = colorForTouch(touches[i]);
+      let idx = ongoingTouchIndexById(touches[i].identifier);
+  
+      if (idx >= 0) {
+        ctx.lineWidth = 4;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(ongoingTouches[idx].pageX, ongoingTouches[idx].pageY);
+        ctx.lineTo(touches[i].pageX, touches[i].pageY);
+        ctx.fillRect(touches[i].pageX - 4, touches[i].pageY - 4, 8, 8); // and a square at the end
+        ongoingTouches.splice(idx, 1); // remove it; we're done
+      } else {
+        log("can't figure out which touch to end");
+      }
+    }
+  }
+  
+  function handleCancel(evt) {
+    evt.preventDefault();
+    log("touchcancel.");
+    const touches = evt.changedTouches;
+  
+    for (let i = 0; i < touches.length; i++) {
+      let idx = ongoingTouchIndexById(touches[i].identifier);
+      ongoingTouches.splice(idx, 1); // remove it; we're done
+    }
+  }
+  
+  function colorForTouch(touch) {
+    let r = touch.identifier % 16;
+    let g = Math.floor(touch.identifier / 3) % 16;
+    let b = Math.floor(touch.identifier / 7) % 16;
+    r = r.toString(16); // make it a hex digit
+    g = g.toString(16); // make it a hex digit
+    b = b.toString(16); // make it a hex digit
+    const color = `#${r}${g}${b}`;
+    return color;
+  }
+  
+  function copyTouch({ identifier, pageX, pageY }) {
+    return { identifier, pageX, pageY };
+  }
+  
+  function ongoingTouchIndexById(idToFind) {
+    for (let i = 0; i < ongoingTouches.length; i++) {
+      const id = ongoingTouches[i].identifier;
+  
+      if (id === idToFind) {
+        return i;
+      }
+    }
+    return -1; // not found
+  }
+  
+  function log(msg) {
+    const container = document.getElementById("log");
+    container.textContent = `${msg} \n${container.textContent}`;
+  }
+  
+

@@ -10,6 +10,12 @@ bluebird.promisifyAll(redis);
 
 dotenv.config();
 
+console.log("Port---",process.env.PORT);
+
+
+console.log("JWT ---",process.env.TOKEN_SECRET);
+
+
 const app = express();
 app.use('/static', express.static(`${__dirname}/static`));
 app.use(express.json());
@@ -47,17 +53,20 @@ async function disconnected(client) {
 }
 
 function auth(req, res, next) {
+    console.log("came in Auth")
     let token;
     if (req.headers.authorization) {
+        console.log("req.headers.authorization", req.headers.authorization)
         token = req.headers.authorization.split(' ')[1];
     } else if (req.query.token) {
+        console.log("req.query.token", req.query.token)
         token = req.query.token;
     }
     if (typeof token !== 'string') {
         return res.sendStatus(401);
     }
 
-    jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
+    jwt.verify(token, (process.env.TOKEN_SECRET || "abcd1234"), (err, user) => {
         if (err) {
             return res.sendStatus(403);
         }
@@ -67,11 +76,15 @@ function auth(req, res, next) {
 }
 
 app.get('/', (req, res) => {
-    let id = (app.locals.index++).toString(36);
+    console.log("came in app.get(/----app.locals.index ...", app.locals.index)
+    // let id = (app.locals.index++).toString(36);
+    let id = (app.locals.index).toString(36);
+    console.log("id is ...",id);
     res.redirect(`/${id}`);
 });
 
 app.post('/access', (req, res) => {
+    console.log("came in app.get(access--")
     if (!req.body.username) {
         return res.sendStatus(403);
     }
@@ -85,6 +98,7 @@ app.post('/access', (req, res) => {
 });
 
 app.get('/connect', auth, (req,res) => {
+    console.log("came in app.get(connect--req ----")
     if (req.headers.accept !== 'text/event-stream') {
         return res.sendStatus(404);
     }
@@ -107,6 +121,9 @@ app.get('/connect', auth, (req,res) => {
         }
     };
 
+    console.log("req.user.id :---",req.user.id);
+
+    console.log("req.user:---",req.user);
     // cache the current connection until it disconnects
     clients[client.id] = client;
 
@@ -117,8 +134,11 @@ app.get('/connect', auth, (req,res) => {
     });
     client.redis.subscribe(`messages:${client.id}`);
 
+    console.log("client.id -- ", client.id)
     // emit the connected state
     client.emit('connected', { user: req.user });
+
+    console.log("connected user is  -- ", req.user)
 
     // ping to the client every so often
     setInterval(() => {
@@ -131,12 +151,15 @@ app.get('/connect', auth, (req,res) => {
 });
 
 app.get('/:roomId', (req, res) => {
+    console.log("Came in app.get(/:roomId")
     res.sendFile(path.join(__dirname, 'static/index.html'));
 });
 
 app.post('/:roomId/join', auth, async (req, res) => {
+    console.log("Came in app.get(/:roomId/join)")
     let roomId = req.params.roomId;
 
+    console.log("room id is ", req.params)
     await redisClient.saddAsync(`${req.user.id}:channels`, roomId);
 
     let peerIds = await redisClient.smembersAsync(`channels:${roomId}`);
@@ -164,6 +187,7 @@ app.post('/:roomId/join', auth, async (req, res) => {
 });
 
 app.post('/relay/:peerId/:event', auth, (req, res) => {
+    console.log("Came in app.get(app.post('/relay/:peerId/:event), req val is user ----")
     let peerId = req.params.peerId;
     let msg = {
         event: req.params.event,
@@ -172,6 +196,10 @@ app.post('/relay/:peerId/:event', auth, (req, res) => {
             data: req.body
         }
     };
+
+    console.log("Came in app.get(app.post('/relay/:peerId/:event), peerId is  ----",peerId)
+    console.log("Came in app.get(app.post('/relay/:peerId/:event), msg  is  ----",msg)
+
     redisClient.publish(`messages:${peerId}`, JSON.stringify(msg));
     return res.sendStatus(200);
 });

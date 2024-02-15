@@ -112,6 +112,12 @@ html, body {
     left: 0px;
 }
 
+#log {
+    height: 200px;
+    width: 600px;
+    overflow: scroll;
+  }
+  
 /** Color Picker */
 .box {
     width: 24px;

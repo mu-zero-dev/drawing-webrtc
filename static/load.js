@@ -7,6 +7,8 @@ var context = {
     channels: {}
 };
 
+console.log("window.location.pathname.substr(1)", window.location)
+
 const rtcConfig = {
     iceServers: [{
         urls: [
@@ -41,7 +43,9 @@ async function join() {
 }
 
 async function connect() {
+    console.log("Going in the connect() function...")
     await getToken();
+    console.log("Going in the connect() function...token is...",context.token)
     context.eventSource = new EventSource(`/connect?token=${context.token}`);
     context.eventSource.addEventListener('add-peer', addPeer, false);
     context.eventSource.addEventListener('remove-peer', removePeer, false);
@@ -54,6 +58,7 @@ async function connect() {
 }
 
 function addPeer(data) {
+    console.log("Came in addPeer...data.. ",data)
     let message = JSON.parse(data.data);
     if (context.peers[message.peer.id]) {
         return;
@@ -70,6 +75,7 @@ function addPeer(data) {
         }
     };
 
+    console.log("message is...",message)
     // generate offer if required (on join, this peer will create an offer
     // to every other peer in the network, thus forming a mesh)
     if (message.offer) {
@@ -91,12 +97,14 @@ function addPeer(data) {
 }
 
 async function createOffer(peerId, peer) {
+    console.log("Came in createOffer..peerId is ... ",peerId)
     let offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
     await relay(peerId, 'session-description', offer);
 }
 
 function relay(peerId, event, data) {
+    console.log("Calling relay")
     fetch(`/relay/${peerId}/${event}`, {
         method: 'POST',
         headers: {
@@ -112,6 +120,7 @@ function peerDataUpdates(peerId, data) {
 }
 
 function broadcast(data) {
+    console.log("broadcast data now ...")
     for (let peerId in context.channels) {
         if (context.channels[peerId].readyState === 'open') {
             context.channels[peerId].send(data);
@@ -142,6 +151,7 @@ async function sessionDescription(data) {
 }
 
 function iceCandidate(data) {
+    console.log("iceCandidate... data.data is ", data.data)
     let message = JSON.parse(data.data);
     let peer = context.peers[message.peer.id];
     peer.addIceCandidate(new RTCIceCandidate(message.data));
